@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI-Powered Homework Writer — in Your Handwriting</title>
+
+  <!-- Google handwriting fonts (common choices) -->
+  <link href="https://fonts.googleapis.com/css2?family=Homemade+Apple&family=Reenie+Beanie&family=Handlee&family=Patrick+Hand&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --accent:#3b82f6;
+      --bg:#f7fbff;
+      --panel:#ffffff;
+      --muted:#6b7280;
+      --shadow: 0 6px 24px rgba(16,24,40,.06);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    body{
+      margin:0;
+      background:linear-gradient(180deg,var(--bg),#fff);
+      min-height:100vh;
+      padding:28px;
+      color:#111827;
+      display:flex;
+      gap:20px;
+      align-items:flex-start;
+      justify-content:center;
+    }
+    .container{
+      width:1100px;
+      max-width:calc(100% - 40px);
+      display:grid;
+      grid-template-columns:360px 1fr;
+      gap:20px;
+    }
+
+    .panel{
+      background:var(--panel);
+      border-radius:12px;
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+
+    h1{font-size:18px;margin:0 0 8px 0}
+    p.lead{margin:0 0 12px 0;color:var(--muted);font-size:13px}
+
+    label{display:block;font-weight:600;margin-top:12px;font-size:13px}
+    .small{font-size:12px;color:var(--muted);font-weight:400;margin-top:6px}
+
+    textarea#inputText{
+      width:100%;
+      height:180px;
+      padding:12px;
+      border-radius:8px;
+      border:1px solid #e6e9ef;
+      resize:vertical;
+      font-size:14px;
+      outline:none;
+      box-sizing:border-box;
+    }
+
+    .controls{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .control{
+      margin-top:8px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      width:100%;
+    }
+    .control > *{flex:1}
+
+    select, input[type="number"], input[type="range"], input[type="file"]{
+      width:100%;
+      padding:8px;
+      border-radius:8px;
+      border:1px solid #e6e9ef;
+      background:white;
+      box-sizing:border-box;
+    }
+
+    button{
+      background:var(--accent);
+      color:white;
+      border:none;
+      padding:10px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:600;
+    }
+    button.ghost{
+      background:transparent;
+      border:1px solid #e6e9ef;
+      color:var(--muted);
+    }
+
+    .canvas-wrap{
+      position:relative;
+      height:720px;
+      border-radius:12px;
+      overflow:hidden;
+      background:repeating-linear-gradient(180deg,#fff 0 28px, #fff6 28px 29px);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    canvas#outputCanvas{
+      flex:1;
+      display:block;
+      width:100%;
+      height:100%;
+      background:transparent;
+    }
+
+    .toolbar{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      padding:8px;
+      border-bottom:1px solid #f1f5f9;
+      background:linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,.3));
+    }
+
+    .note{font-size:12px;color:var(--muted);margin-top:8px}
+    .row{display:flex;gap:8px;align-items:center}
+
+    footer{margin-top:12px;font-size:12px;color:var(--muted)}
+    .muted{color:var(--muted)}
+
+    @media (max-width:980px){
+      .container{grid-template-columns:1fr; padding-bottom:40px}
+      .canvas-wrap{height:640px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left controls -->
+    <div class="panel">
+      <h1>AI-Powered Homework Writer</h1>
+      <p class="lead">Type or paste your homework below. Upload an image of your handwriting to trace and adjust the rendering to match your style. Export as PNG or print to PDF.</p>
+
+      <label for="inputText">Homework text</label>
+      <textarea id="inputText" placeholder="Type your homework here...">Write your homework here. This demo shows how typed text can be rendered in a handwriting-like style and aligned to a sample of your handwriting. Replace this text with your actual homework.</textarea>
+
+      <label for="fontSelect">Handwriting font</label>
+      <select id="fontSelect" title="Choose handwriting font">
+        <option value="'Homemade Apple', cursive">Homemade Apple</option>
+        <option value="'Patrick Hand', cursive">Patrick Hand</option>
+        <option value="'Handlee', cursive">Handlee</option>
+        <option value="'Reenie Beanie', cursive">Reenie Beanie</option>
+        <option value="serif">Serif (not handwriting)</option>
+      </select>
+
+      <div class="controls">
+        <div style="flex:1">
+          <label>Font size (px)</label>
+          <input type="number" id="fontSize" value="34" min="8" max="280" />
+        </div>
+        <div style="flex:1">
+          <label>Line height (px)</label>
+          <input type="number" id="lineHeight" value="56" min="12" max="400" />
+        </div>
+      </div>
+
+      <div class="controls">
+        <div style="flex:1">
+          <label>Letter spacing (px)</label>
+          <input type="number" id="letterSpacing" value="0" min="-6" max="20" step="0.5" />
+        </div>
+        <div style="flex:1">
+          <label>Jitter (randomness)</label>
+          <input type="range" id="jitter" min="0" max="12" value="3" />
+          <div class="small muted">Adds small per-character vertical jitter and rotation to imitate real handwriting.</div>
+        </div>
+      </div>
+
+      <label for="sampleUpload">Upload handwriting sample (optional)</label>
+      <input id="sampleUpload" type="file" accept="image/*" />
+
+      <div class="row" style="margin-top:8px;">
+        <div style="flex:1">
+          <label>Sample opacity</label>
+          <input type="range" id="sampleOpacity" min="0" max="100" value="28" />
+        </div>
+        <div style="width:110px">
+          <label>Scale sample</label>
+          <input type="range" id="sampleScale" min="20" max="200" value="100" />
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button id="renderBtn">Render</button>
+        <button id="downloadPNG" class="ghost">Download PNG</button>
+        <button id="printBtn" class="ghost">Print / Save PDF</button>
+      </div>
+
+      <div class="note">Tips: For the closest match to your handwriting, upload a clear photo or scan of a page you wrote in your usual style (single line spacing). Use the sample opacity to trace the letters and increase jitter slightly for natural variation.</div>
+
+      <footer>
+        <div class="muted">If you'd like an actual font from samples (best match), tell me and I can explain the free/paid tools that generate fonts from handwriting photos.</div>
+      </footer>
+    </div>
+
+    <!-- Right canvas / preview -->
+    <div class="panel canvas-wrap">
+      <div class="toolbar">
+        <div style="font-weight:600">Preview</div>
+        <div style="flex:1"></div>
+        <div class="muted">Canvas size: <span id="canvasSize">A4-like</span></div>
+      </div>
+
+      <canvas id="outputCanvas"></canvas>
+      <input id="hiddenImg" type="hidden" />
+
+    </div>
+  </div>
+
+  <script>
+    // Utility and rendering script
+    const textarea = document.getElementById('inputText');
+    const fontSelect = document.getElementById('fontSelect');
+    const fontSizeInput = document.getElementById('fontSize');
+    const lineHeightInput = document.getElementById('lineHeight');
+    const letterSpacingInput = document.getElementById('letterSpacing');
+    const jitterInput = document.getElementById('jitter');
+    const sampleUpload = document.getElementById('sampleUpload');
+    const sampleOpacity = document.getElementById('sampleOpacity');
+    const sampleScale = document.getElementById('sampleScale');
+
+    const renderBtn = document.getElementById('renderBtn');
+    const downloadPNG = document.getElementById('downloadPNG');
+    const printBtn = document.getElementById('printBtn');
+
+    const canvas = document.getElementById('outputCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas size to an A4-like pixel size at 150 DPI for good prints (approx)
+    function setCanvasSize() {
+      // A4 at 150dpi -> 2480 x 3508 px (approx at 300dpi would be ~3508 x 4961)
+      // We'll use a comfortable size for browsers:
+      const w = 1754; // ~210mm at 200 DPI
+      const h = 2480; // ~297mm at 200 DPI
+      canvas.width = w;
+      canvas.height = h;
+      document.getElementById('canvasSize').textContent = ${w}×${h}px;
+    }
+    setCanvasSize();
+
+    // variable to hold uploaded sample image
+    let sampleImage = null;
+
+    sampleUpload.addEventListener('change', (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        sampleImage = img;
+        renderPreview();
+        // free object URL after image loaded
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = () => {
+        alert('Could not load image. Try a different file.');
+      };
+      img.src = url;
+    });
+
+    function clearCanvas(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // optional: draw faint paper lines
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+
+    function splitIntoLines(text, maxCharsPerLine = 1000) {
+      // Respect newline characters, wrap to canvas width later at render time
+      return text.replace(/\r/g,'').split('\n');
+    }
+
+    // Draw text with small per-character randomization to imitate handwriting
+    function drawHandwrittenText(text, options = {}) {
+      const {
+        fontFamily = "'Homemade Apple', cursive",
+        fontSize = 34,
+        lineHeight = 56,
+        letterSpacing = 0,
+        jitter = 3,
+        startX = 80,
+        startY = 120,
+        maxWidth = canvas.width - 160,
+        sampleImageObj = null,
+        sampleOpacityPct = 28,
+        sampleScalePct = 100,
+      } = options;
+
+      // Background sample image (if present)
+      if (sampleImageObj) {
+        // draw the sample image centered, scaled by sampleScalePct
+        const scale = sampleScalePct / 100;
+        const imgW = sampleImageObj.width * scale;
+        const imgH = sampleImageObj.height * scale;
+        const x = (canvas.width - imgW) / 2;
+        const y = (canvas.height - imgH) / 2;
+        ctx.save();
+        ctx.globalAlpha = sampleOpacityPct / 100;
+        // Fit or not? We center and draw at scale (user can upload scanned page sized similarly)
+        ctx.drawImage(sampleImageObj, x, y, imgW, imgH);
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.textBaseline = 'alphabetic';
+
+      // Prepare font
+      ctx.font = ${fontSize}px ${fontFamily};
+      ctx.fillStyle = '#111827';
+
+      // Split by explicit lines and then wrap within maxWidth
+      const rawLines = splitIntoLines(text);
+      let y = startY;
+
+      for (const rawLine of rawLines) {
+        // manual wrapping by measuring
+        const words = rawLine.split(' ');
+        let line = '';
+        for (let i=0;i<words.length;i++){
+          const test = line ? (line + ' ' + words[i]) : words[i];
+          ctx.font = ${fontSize}px ${fontFamily};
+          const metrics = ctx.measureText(test);
+          if (metrics.width > maxWidth && line !== '') {
+            // render current line then continue
+            y = renderLine(line, startX, y);
+            line = words[i];
+          } else {
+            line = test;
+          }
+        }
+        // render last fragment
+        y = renderLine(line, startX, y);
+      }
+
+      ctx.restore();
+
+      function renderLine(lineText, x, yPos) {
+        // draw each character with small jitter and rotation
+        let xCursor = x;
+        for (let i=0;i<lineText.length;i++){
+          const ch = lineText[i];
+          // measure char width normally
+          ctx.font = ${fontSize}px ${fontFamily};
+          const metrics = ctx.measureText(ch);
+          const w = Math.max(metrics.width, fontSize * 0.28);
+
+          // apply jitter/randomness
+          const vy = (Math.random() - 0.5) * jitter * 1.25;
+          const rot = (Math.random() - 0.5) * (jitter * 0.6) * Math.PI/180;
+
+          ctx.save();
+          ctx.translate(xCursor + w/2, yPos + vy);
+          ctx.rotate(rot);
+          ctx.fillText(ch, -w/2, 0);
+          ctx.restore();
+
+          // advance cursor by measured width + letterSpacing
+          xCursor += w + (letterSpacing || 0);
+        }
+        return yPos + lineHeight;
+      }
+    }
+
+    function renderPreview() {
+      clearCanvas();
+      const text = textarea.value || '';
+      const fontFamily = fontSelect.value;
+      const fontSize = parseInt(fontSizeInput.value)||34;
+      const lineHeight = parseInt(lineHeightInput.value)||56;
+      const letterSpacing = parseFloat(letterSpacingInput.value)||0;
+      const jitter = parseFloat(jitterInput.value)||3;
+      const sampleOpacityPct = parseInt(sampleOpacity.value)||28;
+      const sampleScalePct = parseInt(sampleScale.value)||100;
+
+      drawHandwrittenText(text, {
+        fontFamily,
+        fontSize,
+        lineHeight,
+        letterSpacing,
+        jitter,
+        startX: 80,
+        startY: 140,
+        maxWidth: canvas.width - 160,
+        sampleImageObj: sampleImage,
+        sampleOpacityPct,
+        sampleScalePct,
+      });
+    }
+
+    // initial render
+    renderPreview();
+
+    // attach controls
+    renderBtn.addEventListener('click', () => {
+      renderPreview();
+    });
+
+    // re-render on small changes for live feel
+    [fontSelect, fontSizeInput, lineHeightInput, letterSpacingInput, jitterInput, sampleOpacity, sampleScale].forEach(el=>{
+      el.addEventListener('input', () => {
+        renderPreview();
+      });
+    });
+
+    // Download PNG
+    downloadPNG.addEventListener('click', () => {
+      // re-render at full resolution first (in case user changed size)
+      renderPreview();
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'homework-handwriting.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+
+    // Print / Save as PDF via browser print
+    printBtn.addEventListener('click', () => {
+      // open new window with the canvas image and trigger print
+      const data = canvas.toDataURL('image/png');
+      const w = window.open('', '_blank');
+      if (!w) {
+        alert('Popup blocked. Please allow popups or use Download PNG then print.');
+        return;
+      }
+      w.document.write(`<html><head><title>Print Homework</title>
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <style>body{margin:0;padding:0}img{width:100%;height:auto;display:block}</style>
+        </head><body><img src="${data}"/></body></html>`);
+      w.document.close();
+      // Give the image a bit to load, then call print
+      w.onload = () => {
+        w.focus();
+        w.print();
+      };
+    });
+
+    // keyboard shortcut: Ctrl+Enter to render
+    textarea.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        renderPreview();
+      }
+    });
+
+    // Auto-resize canvas on window resize (keeps same pixel size but fits visually)
+    window.addEventListener('resize', () => {
+      // no need to change pixel size, but we can re-render for clarity
+      renderPreview();
+    });
+
+    // Helpful: let user drag-select a sample into the panel
+    document.body.addEventListener('dragover', (e) => e.preventDefault());
+    document.body.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        const f = e.dataTransfer.files[0];
+        if (f.type.startsWith('image/')) {
+          sampleUpload.files = e.dataTransfer.files;
+          const ev = new Event('change');
+          sampleUpload.dispatchEvent(ev);
+        }
+      }
+    });
+
+    // Seed demo text if empty (for first-time users)
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!textarea.value.trim()) {
+        textarea.value = `Subject: Science
+Topic: Photosynthesis
+
+1. Photosynthesis is the process by which green plants make food using sunlight.
+2. Plants absorb carbon dioxide (CO₂) and water (H₂O).
+3. Chlorophyll captures sunlight to convert CO₂ and H₂O into glucose and oxygen.
+
+Write the answers in your own handwriting style.`;
+        renderPreview();
+      }
+    });
+  </script>
+</body>
+</html>
